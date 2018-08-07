@@ -15,6 +15,7 @@ import java.io.File;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.ResourceBundle;
 
 
@@ -28,7 +29,7 @@ public class Controller implements Initializable {
     ImageView tile2 = new ImageView();
 
     // TODO this should be renamed to difficulty, and not use two variables for the same thing.
-    int difficulty = 10;
+    int difficulty = 15;
 
     File tileImg = new File("assets/tile.png");
     @FXML
@@ -46,7 +47,7 @@ public class Controller implements Initializable {
 
         // TODO For testing purposes
         for (int[] mine : mineField) {
-            gridTiles.add(new Label(" x"), mine[0], mine[1]);
+            gridTiles.add(getTile("mine"), mine[0], mine[1]);
 
         }
         gridTiles.addEventFilter(MouseEvent.MOUSE_PRESSED, new EventHandler<MouseEvent>() {
@@ -71,9 +72,16 @@ public class Controller implements Initializable {
                         ArrayList<int[]> newlyRevealed = clearNearbyField(clickedPosititon);
                         // TODO Can only iterate once
                         while (newlyRevealed != null) {
+                            ArrayList<int[]> nextIter = new ArrayList<>();
                             for (int[] tile : newlyRevealed) {
-                                newlyRevealed = clearNearbyField(tile);
+                                ArrayList<int[]> newly2 = clearNearbyField(tile);
+                                if (newly2 != null)
+                                    nextIter.addAll(newly2);
                             }
+                            if (nextIter.size() > 0)
+                                newlyRevealed = nextIter;
+                            else
+                                newlyRevealed = null;
                         }
                     }
                     clickedTiles.add(clickedPosititon);
@@ -116,6 +124,7 @@ public class Controller implements Initializable {
         return true;
     }
 
+
     // Cycle flag on/flag off on right clicking a tile.
     private ArrayList<int[]> markTile(int[] position, ArrayList<int[]> flaggedTiles) {
         // Check if flag already exists in 'position' -> remove it
@@ -123,13 +132,13 @@ public class Controller implements Initializable {
             if (Arrays.equals(position, pos)) {
                 flaggedTiles.remove(pos);
                 // Draw empty tile on top of previously flagged tile
-                gridTiles.add(getEmptyTile(), position[0], position[1]);
+                gridTiles.add(getTile("tile"), position[0], position[1]);
                 return flaggedTiles;
             }
         }
         // Otherwise add a flag
         flaggedTiles.add(position);
-        gridTiles.add(new Label(" *"), position[0], position[1]);
+        gridTiles.add(getTile("flag"), position[0], position[1]);
         return flaggedTiles;
     }
 
@@ -187,7 +196,7 @@ public class Controller implements Initializable {
     }
 
     private void drawRevealedBlocks(int value, int[] pos) {
-        gridTiles.add(new Label(" " + Integer.toString(value)), pos[0], pos[1]);
+        gridTiles.add(getTile(Integer.toString(value)), pos[0], pos[1]);
     }
 
     // This method "auto reveals" blocks near a "0 block". Is used recursively so when 0 blocks are encountered, same will be done to each of them.
@@ -227,7 +236,8 @@ public class Controller implements Initializable {
                     if (!valExistsInArrayList(nextPos, clickedTiles)) {
                         clickedTiles.add(nextPos);
                         drawRevealedBlocks(minesNearNextPos, nextPos);
-                        newlyRevealed.add(nextPos);
+                        if (minesNearNextPos == 0)
+                            newlyRevealed.add(nextPos);
                         // Ignore rest if the block was already revealed one way or another.
                     } else {
                         break;
@@ -249,7 +259,8 @@ public class Controller implements Initializable {
                         clickedTiles.add(nextPos);
                         drawRevealedBlocks(minesNearNextPos, nextPos);
                         //gridTiles.add(new Label(" " + Integer.toString(minesNearNextPos)), nextPos[0], nextPos[1]);
-                        newlyRevealed.add(nextPos);
+                        if (minesNearNextPos == 0)
+                            newlyRevealed.add(nextPos);
                     }
                 if (minesNearNextPos > 0)
                     break;
@@ -266,7 +277,8 @@ public class Controller implements Initializable {
                         clickedTiles.add(nextPos);
                         drawRevealedBlocks(minesNearNextPos, nextPos);
                         //gridTiles.add(new Label(" " + Integer.toString(minesNearNextPos)), nextPos[0], nextPos[1]);
-                        newlyRevealed.add(nextPos);
+                        if (minesNearNextPos == 0)
+                            newlyRevealed.add(nextPos);
                     }
                 if (minesNearNextPos > 0)
                     break;
@@ -283,7 +295,8 @@ public class Controller implements Initializable {
                         clickedTiles.add(nextPos);
                         drawRevealedBlocks(minesNearNextPos, nextPos);
                         //gridTiles.add(new Label(" " + Integer.toString(minesNearNextPos)), nextPos[0], nextPos[1]);
-                        newlyRevealed.add(nextPos);
+                        if (minesNearNextPos == 0)
+                            newlyRevealed.add(nextPos);
                     }
                 // Do not go further if there's a mine nearby to a newly revealed block.
                 if (minesNearNextPos > 0)
@@ -318,10 +331,10 @@ public class Controller implements Initializable {
     // Return array of (x, y) coordinates where the mines are located. Randomly picked.
     private ArrayList<int[]> putMines(int dim) {
         ArrayList<int[]> minefield = new ArrayList<>();
-        int minesCount = dim;
+        int minesCount = 50;
         // min and max col/row
         int min = 0, max = dim - 1;
-        while (minefield.size() < dim) {
+        while (minefield.size() < minesCount) {
             int mineX = min + (int) (Math.random() * ((max - min) + 1));
             int mineY = min + (int) (Math.random() * ((max - min) + 1));
             int[] mineLocation = {mineX, mineY};
@@ -357,13 +370,35 @@ public class Controller implements Initializable {
         for (int i = 0; i < difficulty; i++) {
             for (int j = 0; j < difficulty; j++) {
                 ImageView tileView = getEmptyTile();
-                gridTiles.add(tileView, i, j);
+                gridTiles.add(getTile("tile"), i, j);
             }
         }
     }
 
     // Return empty "tile", used for drawing the entire board or resetting a single tile(on removing flags).
     private ImageView getEmptyTile() {
+        Image tile = new Image(tileImg.toURI().toString());
+        ImageView tileView = new ImageView();
+        tileView.setImage(tile);
+        return tileView;
+    }
+
+    private ImageView getTile(String val) {
+        HashMap<String, String> tiles = new HashMap<>();
+        tiles.put("1", "1.png");
+        tiles.put("2", "2.png");
+        tiles.put("3", "3.png");
+        tiles.put("4", "4.png");
+        tiles.put("5", "5.png");
+        tiles.put("6", "6.png");
+        tiles.put("7", "7.png");
+        tiles.put("8", "8.png");
+        tiles.put("9", "9.png");
+        tiles.put("0", "0.png");
+        tiles.put("tile", "tile.png");
+        tiles.put("flag", "flag.png");
+        tiles.put("mine", "mine.png");
+        File tileImg = new File("assets/" + tiles.get(val));
         Image tile = new Image(tileImg.toURI().toString());
         ImageView tileView = new ImageView();
         tileView.setImage(tile);
