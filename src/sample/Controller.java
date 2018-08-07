@@ -1,9 +1,12 @@
 package sample;
 
+import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.scene.Node;
+import javafx.scene.control.Button;
+import javafx.scene.control.Label;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.MouseButton;
@@ -22,11 +25,15 @@ public class Controller implements Initializable {
     // Main "board"
     @FXML
     GridPane gridTiles = new GridPane();
-
+    @FXML
+    Button buttonNewGame = new Button();
     //TODO next two vars inside method?
     // Square dimension of board
     int difficulty = 15;
-    int minesCount = 13;
+    int minesCount = 2;
+    String minesRemainingHint = "Mines remaining: ";
+    @FXML
+    Label labelMinesRemaining = new Label();
 
     // List of (x,y) coordinates where mines are located
     ArrayList<int[]> mineField = new ArrayList<>();
@@ -35,16 +42,34 @@ public class Controller implements Initializable {
     // List of currently flagged tiles.
     ArrayList<int[]> flaggedTiles = new ArrayList<>();
 
+    private void newGame() {
+        labelMinesRemaining.setText(minesRemainingHint + Integer.toString(minesCount));
+        buttonNewGame.setDisable(true);
+        mineField = putMines(difficulty, minesCount);
+        clickedTiles = new ArrayList<>();
+        flaggedTiles = new ArrayList<>();
+        drawBoard();
+    }
+
+    @FXML
+    private void handleButtonAction(ActionEvent event) {
+        if (event.getSource() == buttonNewGame) {
+            newGame();
+        }
+    }
+
     @Override
     public void initialize(URL url, ResourceBundle resourceBundle) {
-        mineField = putMines(difficulty, minesCount);
-        drawBoard();
+        newGame();
 
-        // TODO For testing purposes
+        // For testing purposes
         for (int[] mine : mineField) {
             //gridTiles.add(getTile("mine"), mine[0], mine[1]);
 
         }
+
+
+
         gridTiles.addEventFilter(MouseEvent.MOUSE_PRESSED, new EventHandler<MouseEvent>() {
             int clickedPosition[] = null;
 
@@ -60,9 +85,11 @@ public class Controller implements Initializable {
                 if (mouseEvent.getButton() == MouseButton.PRIMARY) {
                     int minesNearby = revealTile(clickedPosition);
                     // Clicked on a mine
-                    if (minesNearby == -1)
-                        // TODO implement
+                    if (minesNearby == -1) {
+                        labelMinesRemaining.setText("You lost!");
                         revealBoard();
+                        buttonNewGame.setDisable(false);
+                    }
                     if (minesNearby == 0) {
                         ArrayList<int[]> newlyRevealed = clearNearbyField(clickedPosition);
                         while (newlyRevealed != null) {
@@ -87,13 +114,18 @@ public class Controller implements Initializable {
                     if (valExistsInArrayList(clickedPosition, clickedTiles))
                         return;
                     flaggedTiles = markTile(clickedPosition, flaggedTiles);
+                    labelMinesRemaining.setText(minesRemainingHint + Integer.toString(minesCount - flaggedTiles.size()));
+
                     if (checkIfAllMinesFlagged(flaggedTiles, mineField)) {
-                        revealBoard();
+                        labelMinesRemaining.setText("You won");
+                        buttonNewGame.setDisable(false);
                     }
                 }
             }
         });
+
     }
+
 
     // Check if all flags are on top of mines(every mine has to be flagged)
     private boolean checkIfAllMinesFlagged(ArrayList<int[]> flaggedTiles, ArrayList<int[]> mineField) {
@@ -117,9 +149,17 @@ public class Controller implements Initializable {
 
     // Cycle flag on/flag off on right clicking a tile.
     private ArrayList<int[]> markTile(int[] position, ArrayList<int[]> flaggedTiles) {
+        if (flaggedTiles.size() == minesCount) {
+            return flaggedTiles;
+        }
         // Check if flag already exists in 'position' -> remove it
         if (valExistsInArrayList(position, flaggedTiles)) {
-            flaggedTiles.remove(position);
+            for (int[] tile : flaggedTiles) {
+                if (Arrays.equals(tile, position)) {
+                    flaggedTiles.remove(tile);
+                    break;
+                }
+            }
             // Draw empty tile on top of previously flagged tile
             gridTiles.add(getTile("tile"), position[0], position[1]);
             return flaggedTiles;
@@ -134,7 +174,6 @@ public class Controller implements Initializable {
     // Return: Amount of mines in blocks that are near the clicked block(diagonally or directly next to clicked block).
     // OR -1 on mine.
     private int revealTile(int[] position) {
-        System.out.println("testing pos: " + Arrays.toString(position));
         // This is a mine
         if (valExistsInArrayList(position, mineField))
             return -1;
@@ -268,8 +307,16 @@ public class Controller implements Initializable {
     }
 
     private void revealBoard() {
-        System.exit(0);
-        // TODO
+        for (int i = 0; i < difficulty; i++) {
+            for (int j = 0; j < difficulty; j++) {
+                int[] tile = {i, j};
+                if (valExistsInArrayList(tile, mineField)) {
+                    gridTiles.add(getTile("mine"), i, j);
+                } else {
+                    gridTiles.add(getTile(Integer.toString(revealTile(tile))), i, j);
+                }
+            }
+        }
     }
 
     // Convert (x, y) into a single integer. Top to bottom; If "difficulty" is 10 first column is 0 through 10, second is 11 through 20 etc...
