@@ -4,7 +4,6 @@ import javafx.event.EventHandler;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.scene.Node;
-import javafx.scene.control.Label;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.MouseButton;
@@ -23,17 +22,13 @@ public class Controller implements Initializable {
     // Main "board"
     @FXML
     GridPane gridTiles = new GridPane();
-    @FXML
-    ImageView tile1 = new ImageView();
-    @FXML
-    ImageView tile2 = new ImageView();
 
-    // TODO this should be renamed to difficulty, and not use two variables for the same thing.
+    //TODO next two vars inside method?
+    // Square dimension of board
     int difficulty = 15;
+    int minesCount = 1;
 
-    File tileImg = new File("assets/tile.png");
-    @FXML
-    ImageView imageView = new ImageView(tileImg.toURI().toString());
+    // List of (x,y) coordinates where mines are located
     ArrayList<int[]> mineField = new ArrayList<>();
     // Remember tiles that have successfully been opened.
     ArrayList<int[]> clickedTiles = new ArrayList<>();
@@ -42,35 +37,34 @@ public class Controller implements Initializable {
 
     @Override
     public void initialize(URL url, ResourceBundle resourceBundle) {
-        mineField = putMines(difficulty);
-        drawBoard(difficulty, mineField);
+        mineField = putMines(difficulty, minesCount);
+        drawBoard();
 
         // TODO For testing purposes
         for (int[] mine : mineField) {
-            gridTiles.add(getTile("mine"), mine[0], mine[1]);
+            //gridTiles.add(getTile("mine"), mine[0], mine[1]);
 
         }
         gridTiles.addEventFilter(MouseEvent.MOUSE_PRESSED, new EventHandler<MouseEvent>() {
-            int clickedPosititon[] = null;
+            int clickedPosition[] = null;
 
             @Override
             public void handle(MouseEvent mouseEvent) {
                 // Listen for a click in the grid pane, store the selected tile in (x, y) coordinates.
                 for (Node n : gridTiles.getChildren()) {
                     if (n.getBoundsInParent().contains(mouseEvent.getX(), mouseEvent.getY())) {
-                        clickedPosititon = new int[]{GridPane.getColumnIndex(n), GridPane.getRowIndex(n)};
+                        clickedPosition = new int[]{GridPane.getColumnIndex(n), GridPane.getRowIndex(n)};
                     }
                 }
                 // If left-click
                 if (mouseEvent.getButton() == MouseButton.PRIMARY) {
-                    int minesNearby;
-                    minesNearby = revealTile(clickedPosititon);
+                    int minesNearby = revealTile(clickedPosition);
                     // Clicked on a mine
                     if (minesNearby == -1)
+                        // TODO implement
                         revealBoard();
                     if (minesNearby == 0) {
-                        ArrayList<int[]> newlyRevealed = clearNearbyField(clickedPosititon);
-                        // TODO Can only iterate once
+                        ArrayList<int[]> newlyRevealed = clearNearbyField(clickedPosition);
                         while (newlyRevealed != null) {
                             ArrayList<int[]> nextIter = new ArrayList<>();
                             for (int[] tile : newlyRevealed) {
@@ -84,19 +78,15 @@ public class Controller implements Initializable {
                                 newlyRevealed = null;
                         }
                     }
-                    clickedTiles.add(clickedPosititon);
-                    drawRevealedBlocks(minesNearby, clickedPosititon);
+                    clickedTiles.add(clickedPosition);
+                    drawRevealedBlocks(minesNearby, clickedPosition);
 
                     // If right-click
                 } else if (mouseEvent.getButton() == MouseButton.SECONDARY) {
-                    // If clicked tile in clickedTiles
-                    for (int[] pos : clickedTiles) {
-                        // Do not allow flagging of tiles that have been opened.
-                        if (Arrays.equals(pos, clickedPosititon)) {
-                            return;
-                        }
-                    }
-                    flaggedTiles = markTile(clickedPosititon, flaggedTiles);
+                    // Can't flag opened tile
+                    if (valExistsInArrayList(clickedPosition, clickedTiles))
+                        return;
+                    flaggedTiles = markTile(clickedPosition, flaggedTiles);
                     if (checkIfAllMinesFlagged(flaggedTiles, mineField)) {
                         revealBoard();
                     }
@@ -128,13 +118,11 @@ public class Controller implements Initializable {
     // Cycle flag on/flag off on right clicking a tile.
     private ArrayList<int[]> markTile(int[] position, ArrayList<int[]> flaggedTiles) {
         // Check if flag already exists in 'position' -> remove it
-        for (int[] pos : flaggedTiles) {
-            if (Arrays.equals(position, pos)) {
-                flaggedTiles.remove(pos);
-                // Draw empty tile on top of previously flagged tile
-                gridTiles.add(getTile("tile"), position[0], position[1]);
-                return flaggedTiles;
-            }
+        if (valExistsInArrayList(position, flaggedTiles)) {
+            flaggedTiles.remove(position);
+            // Draw empty tile on top of previously flagged tile
+            gridTiles.add(getTile("tile"), position[0], position[1]);
+            return flaggedTiles;
         }
         // Otherwise add a flag
         flaggedTiles.add(position);
@@ -142,7 +130,6 @@ public class Controller implements Initializable {
         return flaggedTiles;
     }
 
-    // TODO use this as check to whether there are mines under 'position', useful for revealing the board
     // Parameter: clicked block on grid (x, y)
     // Return: Amount of mines in blocks that are near the clicked block(diagonally or directly next to clicked block).
     // OR -1 on mine.
@@ -181,9 +168,6 @@ public class Controller implements Initializable {
                     minesNearby++;
             }
         }
-        // TODO Reveal all blocks with 0 in them after clicked on a nearby non-mine
-        // TODO special block for "0"
-        //gridTiles.add(new Label(" " + Integer.toString(minesNearby)), position[0], position[1]);
         return minesNearby;
     }
 
@@ -203,7 +187,6 @@ public class Controller implements Initializable {
     // This will only be called on clicking "0 blocks".
     // Parameter: block whose neighbours shall be revealed.
     // Return: blocks that were revealed during method run.
-    // TODO This method is ridiculously complicated! Works though...
     private ArrayList<int[]> clearNearbyField(int[] pos) {
         // Store all tiles that are revealed in this method run.
         ArrayList<int[]> newlyRevealed = new ArrayList<>();
@@ -329,9 +312,8 @@ public class Controller implements Initializable {
     }
 
     // Return array of (x, y) coordinates where the mines are located. Randomly picked.
-    private ArrayList<int[]> putMines(int dim) {
+    private ArrayList<int[]> putMines(int dim, int minesCount) {
         ArrayList<int[]> minefield = new ArrayList<>();
-        int minesCount = 50;
         // min and max col/row
         int min = 0, max = dim - 1;
         while (minefield.size() < minesCount) {
@@ -354,33 +336,12 @@ public class Controller implements Initializable {
         return false;
     }
 
-    // Return 1 on death, 0 otherwise
-    private int clickAction(int[] position, ArrayList<int[]> mineField) {
-        for (int i = 0; i < mineField.size(); i++) {
-            // Click on a mine
-            if (mineField.get(i)[0] == position[0] && mineField.get(i)[1] == position[1]) {
-                return 1;
-            }
-        }
-        return 0;
-    }
-
-    // TODO Parameters not used
-    private void drawBoard(int dim, ArrayList<int[]> mineField) {
+    private void drawBoard() {
         for (int i = 0; i < difficulty; i++) {
             for (int j = 0; j < difficulty; j++) {
-                ImageView tileView = getEmptyTile();
                 gridTiles.add(getTile("tile"), i, j);
             }
         }
-    }
-
-    // Return empty "tile", used for drawing the entire board or resetting a single tile(on removing flags).
-    private ImageView getEmptyTile() {
-        Image tile = new Image(tileImg.toURI().toString());
-        ImageView tileView = new ImageView();
-        tileView.setImage(tile);
-        return tileView;
     }
 
     private ImageView getTile(String val) {
