@@ -68,10 +68,16 @@ public class Controller implements Initializable {
                     if (minesNearby == -1)
                         revealBoard();
                     if (minesNearby == 0) {
-                        clearNearbyField(clickedPosititon);
+                        ArrayList<int[]> newlyRevealed = clearNearbyField(clickedPosititon);
+                        // TODO Can only iterate once
+                        while (newlyRevealed != null) {
+                            for (int[] tile : newlyRevealed) {
+                                newlyRevealed = clearNearbyField(tile);
+                            }
+                        }
                     }
-                    gridTiles.add(new Label(" " + Integer.toString(minesNearby)), clickedPosititon[0], clickedPosititon[1]);
                     clickedTiles.add(clickedPosititon);
+                    drawRevealedBlocks(minesNearby, clickedPosititon);
 
                     // If right-click
                 } else if (mouseEvent.getButton() == MouseButton.SECONDARY) {
@@ -180,21 +186,18 @@ public class Controller implements Initializable {
         return false;
     }
 
+    private void drawRevealedBlocks(int value, int[] pos) {
+        gridTiles.add(new Label(" " + Integer.toString(value)), pos[0], pos[1]);
+    }
 
-    /*
-    0 0 0 1 1 1
-    0 0 0 1 x 1
-    0 0 0 1 1 1
-    0 c 0 0 0 0
-
-    * Click on a 0
-    * Go horizontally and reveal all 0's and if number encountered, reveal it and break
-    * ... vertically ...
-    * Do the same for each revealed 0
-
-     */
-
-    private void clearNearbyField(int[] pos) {
+    // This method "auto reveals" blocks near a "0 block". Is used recursively so when 0 blocks are encountered, same will be done to each of them.
+    // This will only be called on clicking "0 blocks".
+    // Parameter: block whose neighbours shall be revealed.
+    // Return: blocks that were revealed during method run.
+    // TODO This method is ridiculously complicated! Works though...
+    private ArrayList<int[]> clearNearbyField(int[] pos) {
+        // Store all tiles that are revealed in this method run.
+        ArrayList<int[]> newlyRevealed = new ArrayList<>();
         String positionV, positionH;
         int positionInt = gridPosToInt(pos);
         if (positionInt % difficulty == 0) {
@@ -212,14 +215,25 @@ public class Controller implements Initializable {
         } else {
             positionH = "middle";
         }
-        int loopCounter = 0;
-        // Go left
+        // Go left (if not already leftmost)
+        // TODO Should this not work without positionH and positionV because of the for-loop conditions??
         if (!positionH.equals("left")) {
             for (int i = pos[0] - 1; i >= 0; i--) {
+                // "Goes one to the left"
                 int[] nextPos = {i, pos[1]};
                 int minesNearNextPos = revealTile(nextPos);
-                if (minesNearNextPos >= 0)
-                    gridTiles.add(new Label(" " + Integer.toString(minesNearNextPos)), nextPos[0], nextPos[1]);
+                // If not a mine(mine == -1)
+                if (minesNearNextPos >= 0) {
+                    if (!valExistsInArrayList(nextPos, clickedTiles)) {
+                        clickedTiles.add(nextPos);
+                        drawRevealedBlocks(minesNearNextPos, nextPos);
+                        newlyRevealed.add(nextPos);
+                        // Ignore rest if the block was already revealed one way or another.
+                    } else {
+                        break;
+                    }
+                }
+                // Do not reveal anything beyond a numbered block just like the original Minesweeper.
                 if (minesNearNextPos > 0)
                     break;
             }
@@ -231,7 +245,12 @@ public class Controller implements Initializable {
                 int[] nextPos = {i, pos[1]};
                 int minesNearNextPos = revealTile(nextPos);
                 if (minesNearNextPos >= 0)
-                    gridTiles.add(new Label(" " + Integer.toString(minesNearNextPos)), nextPos[0], nextPos[1]);
+                    if (!valExistsInArrayList(nextPos, clickedTiles)) {
+                        clickedTiles.add(nextPos);
+                        drawRevealedBlocks(minesNearNextPos, nextPos);
+                        //gridTiles.add(new Label(" " + Integer.toString(minesNearNextPos)), nextPos[0], nextPos[1]);
+                        newlyRevealed.add(nextPos);
+                    }
                 if (minesNearNextPos > 0)
                     break;
             }
@@ -243,7 +262,12 @@ public class Controller implements Initializable {
                 int[] nextPos = {pos[0], i};
                 int minesNearNextPos = revealTile(nextPos);
                 if (minesNearNextPos >= 0)
-                    gridTiles.add(new Label(" " + Integer.toString(minesNearNextPos)), nextPos[0], nextPos[1]);
+                    if (!valExistsInArrayList(nextPos, clickedTiles)) {
+                        clickedTiles.add(nextPos);
+                        drawRevealedBlocks(minesNearNextPos, nextPos);
+                        //gridTiles.add(new Label(" " + Integer.toString(minesNearNextPos)), nextPos[0], nextPos[1]);
+                        newlyRevealed.add(nextPos);
+                    }
                 if (minesNearNextPos > 0)
                     break;
             }
@@ -255,12 +279,23 @@ public class Controller implements Initializable {
                 int[] nextPos = {pos[0], i};
                 int minesNearNextPos = revealTile(nextPos);
                 if (minesNearNextPos >= 0)
-                    gridTiles.add(new Label(" " + Integer.toString(minesNearNextPos)), nextPos[0], nextPos[1]);
+                    if (!valExistsInArrayList(nextPos, clickedTiles)) {
+                        clickedTiles.add(nextPos);
+                        drawRevealedBlocks(minesNearNextPos, nextPos);
+                        //gridTiles.add(new Label(" " + Integer.toString(minesNearNextPos)), nextPos[0], nextPos[1]);
+                        newlyRevealed.add(nextPos);
+                    }
+                // Do not go further if there's a mine nearby to a newly revealed block.
                 if (minesNearNextPos > 0)
                     break;
             }
         }
 
+        if (newlyRevealed.size() > 0)
+            return newlyRevealed;
+            // The loop calling this method will be broken on null(when nothing new was revealed).
+        else
+            return null;
     }
 
     private void revealBoard() {
