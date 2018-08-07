@@ -46,7 +46,7 @@ public class Controller implements Initializable {
 
         // TODO For testing purposes
         for (int[] mine : mineField) {
-            //gridTiles.add(new Label(" x"), mine[0], mine[1]);
+            gridTiles.add(new Label(" x"), mine[0], mine[1]);
 
         }
         gridTiles.addEventFilter(MouseEvent.MOUSE_PRESSED, new EventHandler<MouseEvent>() {
@@ -63,25 +63,27 @@ public class Controller implements Initializable {
                 // If left-click
                 if (mouseEvent.getButton() == MouseButton.PRIMARY) {
                     int minesNearby;
-                    if (clickAction(clickedPosititon, mineField) == 1) {
+                    minesNearby = revealTile(clickedPosititon);
+                    // Clicked on a mine
+                    if (minesNearby == -1)
                         revealBoard();
-                        // TODO implement
-                        // gameOver();
-                    } else {
-                        revealTile(clickedPosititon);
-                        clickedTiles.add(clickedPosititon);
+                    if (minesNearby == 0) {
+                        clearNearbyField(clickedPosititon);
                     }
+                    gridTiles.add(new Label(" " + Integer.toString(minesNearby)), clickedPosititon[0], clickedPosititon[1]);
+                    clickedTiles.add(clickedPosititon);
+
                     // If right-click
                 } else if (mouseEvent.getButton() == MouseButton.SECONDARY) {
                     // If clicked tile in clickedTiles
-                    for (int[] pos : clickedTiles){
+                    for (int[] pos : clickedTiles) {
                         // Do not allow flagging of tiles that have been opened.
-                        if (Arrays.equals(pos, clickedPosititon)){
+                        if (Arrays.equals(pos, clickedPosititon)) {
                             return;
                         }
                     }
                     flaggedTiles = markTile(clickedPosititon, flaggedTiles);
-                    if (checkIfAllMinesFlagged(flaggedTiles, mineField)){
+                    if (checkIfAllMinesFlagged(flaggedTiles, mineField)) {
                         revealBoard();
                     }
                 }
@@ -90,15 +92,15 @@ public class Controller implements Initializable {
     }
 
     // Check if all flags are on top of mines(every mine has to be flagged)
-    private boolean checkIfAllMinesFlagged(ArrayList<int[]> flaggedTiles, ArrayList<int[]> mineField){
-        if (flaggedTiles.size() != mineField.size()){
+    private boolean checkIfAllMinesFlagged(ArrayList<int[]> flaggedTiles, ArrayList<int[]> mineField) {
+        if (flaggedTiles.size() != mineField.size()) {
             return false;
         }
-        for (int[] flaggedTile : flaggedTiles){
+        for (int[] flaggedTile : flaggedTiles) {
             // use boolean instead of breaking out of a nested loop...
             boolean flaggedCorrectly = false;
-            for (int[] mine : mineField){
-                if (Arrays.equals(flaggedTile, mine)){
+            for (int[] mine : mineField) {
+                if (Arrays.equals(flaggedTile, mine)) {
                     flaggedCorrectly = true;
                 }
             }
@@ -109,10 +111,10 @@ public class Controller implements Initializable {
     }
 
     // Cycle flag on/flag off on right clicking a tile.
-    private ArrayList<int[]> markTile(int[] position, ArrayList<int[]> flaggedTiles){
+    private ArrayList<int[]> markTile(int[] position, ArrayList<int[]> flaggedTiles) {
         // Check if flag already exists in 'position' -> remove it
-        for (int[] pos : flaggedTiles){
-            if (Arrays.equals(position, pos)){
+        for (int[] pos : flaggedTiles) {
+            if (Arrays.equals(position, pos)) {
                 flaggedTiles.remove(pos);
                 // Draw empty tile on top of previously flagged tile
                 gridTiles.add(getEmptyTile(), position[0], position[1]);
@@ -127,8 +129,13 @@ public class Controller implements Initializable {
 
     // TODO use this as check to whether there are mines under 'position', useful for revealing the board
     // Parameter: clicked block on grid (x, y)
-    // Return: Amount of mines in blocks that are near the clicked block(diagonally or directly next to clicked block)
+    // Return: Amount of mines in blocks that are near the clicked block(diagonally or directly next to clicked block).
+    // OR -1 on mine.
     private int revealTile(int[] position) {
+        System.out.println("testing pos: " + Arrays.toString(position));
+        // This is a mine
+        if (valExistsInArrayList(position, mineField))
+            return -1;
         int positionInt = gridPosToInt(position);
         int minesNearby = 0;
         int dangerPos[];
@@ -160,8 +167,100 @@ public class Controller implements Initializable {
             }
         }
         // TODO Reveal all blocks with 0 in them after clicked on a nearby non-mine
-        gridTiles.add(new Label(" " + Integer.toString(minesNearby)), position[0], position[1]);
+        // TODO special block for "0"
+        //gridTiles.add(new Label(" " + Integer.toString(minesNearby)), position[0], position[1]);
         return minesNearby;
+    }
+
+    private boolean valExistsInArrayList(int[] val, ArrayList<int[]> AL) {
+        for (int[] item : AL) {
+            if (Arrays.equals(item, val))
+                return true;
+        }
+        return false;
+    }
+
+
+    /*
+    0 0 0 1 1 1
+    0 0 0 1 x 1
+    0 0 0 1 1 1
+    0 c 0 0 0 0
+
+    * Click on a 0
+    * Go horizontally and reveal all 0's and if number encountered, reveal it and break
+    * ... vertically ...
+    * Do the same for each revealed 0
+
+     */
+
+    private void clearNearbyField(int[] pos) {
+        String positionV, positionH;
+        int positionInt = gridPosToInt(pos);
+        if (positionInt % difficulty == 0) {
+            positionV = "top";
+        } else if (positionInt % difficulty == difficulty - 1) {
+            positionV = "bottom";
+        } else {
+            positionV = "middle";
+        }
+
+        if (positionInt <= difficulty) {
+            positionH = "left";
+        } else if (positionInt >= difficulty * difficulty) {
+            positionH = "right";
+        } else {
+            positionH = "middle";
+        }
+        int loopCounter = 0;
+        // Go left
+        if (!positionH.equals("left")) {
+            for (int i = pos[0] - 1; i >= 0; i--) {
+                int[] nextPos = {i, pos[1]};
+                int minesNearNextPos = revealTile(nextPos);
+                if (minesNearNextPos >= 0)
+                    gridTiles.add(new Label(" " + Integer.toString(minesNearNextPos)), nextPos[0], nextPos[1]);
+                if (minesNearNextPos > 0)
+                    break;
+            }
+        }
+        // Go right
+        if (!positionH.equals("right")) {
+
+            for (int i = pos[0] + 1; i <= difficulty - 1; i++) {
+                int[] nextPos = {i, pos[1]};
+                int minesNearNextPos = revealTile(nextPos);
+                if (minesNearNextPos >= 0)
+                    gridTiles.add(new Label(" " + Integer.toString(minesNearNextPos)), nextPos[0], nextPos[1]);
+                if (minesNearNextPos > 0)
+                    break;
+            }
+        }
+        // Go up
+        if (!positionV.equals("top")) {
+
+            for (int i = pos[1] - 1; i >= 0; i--) {
+                int[] nextPos = {pos[0], i};
+                int minesNearNextPos = revealTile(nextPos);
+                if (minesNearNextPos >= 0)
+                    gridTiles.add(new Label(" " + Integer.toString(minesNearNextPos)), nextPos[0], nextPos[1]);
+                if (minesNearNextPos > 0)
+                    break;
+            }
+        }
+        // Go down
+        if (!positionV.equals("bottom")) {
+
+            for (int i = pos[1] + 1; i <= difficulty - 1; i++) {
+                int[] nextPos = {pos[0], i};
+                int minesNearNextPos = revealTile(nextPos);
+                if (minesNearNextPos >= 0)
+                    gridTiles.add(new Label(" " + Integer.toString(minesNearNextPos)), nextPos[0], nextPos[1]);
+                if (minesNearNextPos > 0)
+                    break;
+            }
+        }
+
     }
 
     private void revealBoard() {
@@ -187,7 +286,7 @@ public class Controller implements Initializable {
         int minesCount = dim;
         // min and max col/row
         int min = 0, max = dim - 1;
-        while (minefield.size() < dim){
+        while (minefield.size() < dim) {
             int mineX = min + (int) (Math.random() * ((max - min) + 1));
             int mineY = min + (int) (Math.random() * ((max - min) + 1));
             int[] mineLocation = {mineX, mineY};
@@ -195,14 +294,12 @@ public class Controller implements Initializable {
             if (!hasThisCoordinate(minefield, mineLocation))
                 minefield.add(mineLocation);
         }
-        for (int[] mine : minefield){
-            System.out.println(Arrays.toString(mine));
-        }
         return minefield;
     }
+
     // Check if the minefield already has this randomly generated mine.
-    private boolean hasThisCoordinate(ArrayList<int[]> AL, int[] c){
-        for (int[] item : AL){
+    private boolean hasThisCoordinate(ArrayList<int[]> AL, int[] c) {
+        for (int[] item : AL) {
             if (Arrays.equals(item, c))
                 return true;
         }
@@ -231,7 +328,7 @@ public class Controller implements Initializable {
     }
 
     // Return empty "tile", used for drawing the entire board or resetting a single tile(on removing flags).
-    private ImageView getEmptyTile(){
+    private ImageView getEmptyTile() {
         Image tile = new Image(tileImg.toURI().toString());
         ImageView tileView = new ImageView();
         tileView.setImage(tile);
