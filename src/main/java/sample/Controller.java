@@ -1,5 +1,6 @@
 package sample;
 
+import com.jconf.jconf.Jconf;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.fxml.FXML;
@@ -27,10 +28,10 @@ public class Controller implements Initializable {
     GridPane gridTiles = new GridPane();
     @FXML
     Button buttonNewGame = new Button();
-    //TODO next two vars inside method?
     // Square dimension of board
-    int difficulty = 15;
-    int minesCount = 2;
+    //int difficulty = 15;
+    int dim[];
+    int minesCount = 20;
     String minesRemainingHint = "Mines remaining: ";
     @FXML
     Label labelMinesRemaining = new Label();
@@ -42,13 +43,27 @@ public class Controller implements Initializable {
     // List of currently flagged tiles.
     ArrayList<int[]> flaggedTiles = new ArrayList<>();
 
+    private void getConf(){
+        String settingsFile = "settings/settings";
+        Jconf conf;
+        try {
+            conf = new Jconf(settingsFile);
+        } catch (Exception e){
+            e.printStackTrace();
+            System.out.println("Cannot read from " + settingsFile + ". Using default values.");
+            dim = new int[]{20, 15};
+            return;
+        }
+        dim = new int[]{(int) conf.getVal("General", "Width"), (int) conf.getVal("General", "Height")};
+    }
+
     private void newGame() {
         labelMinesRemaining.setText(minesRemainingHint + Integer.toString(minesCount));
         buttonNewGame.setDisable(true);
-        mineField = putMines(difficulty, minesCount);
+        mineField = putMines(dim, minesCount);
         clickedTiles = new ArrayList<>();
         flaggedTiles = new ArrayList<>();
-        drawBoard();
+        drawBoard(dim);
     }
 
     @FXML
@@ -60,6 +75,7 @@ public class Controller implements Initializable {
 
     @Override
     public void initialize(URL url, ResourceBundle resourceBundle) {
+        getConf();
         newGame();
 
         // For testing purposes
@@ -67,9 +83,6 @@ public class Controller implements Initializable {
             //gridTiles.add(getTile("mine"), mine[0], mine[1]);
 
         }
-
-
-
         gridTiles.addEventFilter(MouseEvent.MOUSE_PRESSED, new EventHandler<MouseEvent>() {
             int clickedPosition[] = null;
 
@@ -174,6 +187,7 @@ public class Controller implements Initializable {
     // Return: Amount of mines in blocks that are near the clicked block(diagonally or directly next to clicked block).
     // OR -1 on mine.
     private int revealTile(int[] position) {
+        int dimX = dim[0], dimY = dim[1];
         // This is a mine
         if (valExistsInArrayList(position, mineField))
             return -1;
@@ -182,19 +196,19 @@ public class Controller implements Initializable {
         int dangerPos[];
         // These arrays show which tiles are near to the clicked tile. If clicked on top or bottom edge -> ignore tiles
         // that span to the other side because of the way the tiles are numbered(in single int form).
-        int minesNearbyPos[] = {positionInt - difficulty, positionInt - difficulty - 1, positionInt - difficulty + 1,
-                positionInt + difficulty, positionInt + difficulty - 1, positionInt + difficulty + 1,
+        int minesNearbyPos[] = {positionInt - dimY, positionInt - dimY - 1, positionInt - dimY + 1,
+                positionInt + dimY, positionInt + dimY - 1, positionInt + dimY + 1,
                 positionInt - 1, positionInt + 1};
-        int minesNearbyPosOnTopEdge[] = {positionInt - difficulty, positionInt - difficulty + 1,
-                positionInt + difficulty, positionInt + difficulty + 1,
+        int minesNearbyPosOnTopEdge[] = {positionInt - dimY, positionInt - dimY + 1,
+                positionInt + dimY, positionInt + dimY + 1,
                 positionInt + 1};
-        int minesNearbyPosOnBottomEdge[] = {positionInt - difficulty, positionInt - difficulty - 1,
-                positionInt + difficulty, positionInt + difficulty - 1,
+        int minesNearbyPosOnBottomEdge[] = {positionInt - dimY, positionInt - dimY - 1,
+                positionInt + dimY, positionInt + dimY - 1,
                 positionInt - 1};
         // Determine whether clicked position is in the top edge, bottom edge or neither. Use above "danger" arrays accordingly.
-        if (positionInt % difficulty == 0) {
+        if (positionInt % dimY == 0) {
             dangerPos = minesNearbyPosOnTopEdge;
-        } else if (positionInt % difficulty == difficulty - 1) {
+        } else if (positionInt % dimY == dimY - 1) {
             dangerPos = minesNearbyPosOnBottomEdge;
         } else {
             dangerPos = minesNearbyPos;
@@ -228,6 +242,7 @@ public class Controller implements Initializable {
     // Return: blocks that were revealed during method run.
     // TODO? redundancy but maybe not worth fixing? (left, right, up, down parts do the same things essentially)
     private ArrayList<int[]> clearNearbyField(int[] pos) {
+        int dimX = dim[0], dimY = dim[1];
         // Store all tiles that are revealed in this method run.
         ArrayList<int[]> newlyRevealed = new ArrayList<>();
 
@@ -254,7 +269,7 @@ public class Controller implements Initializable {
         }
 
         // Go right
-        for (int i = pos[0] + 1; i <= difficulty - 1; i++) {
+        for (int i = pos[0] + 1; i <= dimX - 1; i++) {
             int[] nextPos = {i, pos[1]};
             int minesNearNextPos = revealTile(nextPos);
             if (minesNearNextPos >= 0)
@@ -284,7 +299,7 @@ public class Controller implements Initializable {
         }
 
         // Go down
-        for (int i = pos[1] + 1; i <= difficulty - 1; i++) {
+        for (int i = pos[1] + 1; i <= dimY - 1; i++) {
             int[] nextPos = {pos[0], i};
             int minesNearNextPos = revealTile(nextPos);
             if (minesNearNextPos >= 0)
@@ -307,8 +322,8 @@ public class Controller implements Initializable {
     }
 
     private void revealBoard() {
-        for (int i = 0; i < difficulty; i++) {
-            for (int j = 0; j < difficulty; j++) {
+        for (int i = 0; i < dim[0]; i++) {
+            for (int j = 0; j < dim[1]; j++) {
                 int[] tile = {i, j};
                 if (valExistsInArrayList(tile, mineField)) {
                     gridTiles.add(getTile("mine"), i, j);
@@ -321,10 +336,10 @@ public class Controller implements Initializable {
 
     // Convert (x, y) into a single integer. Top to bottom; If "difficulty" is 10 first column is 0 through 10, second is 11 through 20 etc...
     private int gridPosToInt(int[] pos) {
-        for (int x = 0; x < difficulty; x++) {
-            for (int y = 0; y < difficulty; y++) {
+        for (int x = 0; x < dim[0]; x++) {
+            for (int y = 0; y < dim[1]; y++) {
                 if (pos[0] == x && pos[1] == y) {
-                    return x * difficulty + y;
+                    return x * dim[1] + y;
                 }
             }
         }
@@ -332,13 +347,13 @@ public class Controller implements Initializable {
     }
 
     // Return array of (x, y) coordinates where the mines are located. Randomly picked.
-    private ArrayList<int[]> putMines(int dim, int minesCount) {
+    private ArrayList<int[]> putMines(int[] dim, int minesCount) {
         ArrayList<int[]> minefield = new ArrayList<>();
         // min and max col/row
-        int min = 0, max = dim - 1;
+        int min = 0, maxX = dim[0] - 1, maxY = dim[1] - 1;
         while (minefield.size() < minesCount) {
-            int mineX = min + (int) (Math.random() * ((max - min) + 1));
-            int mineY = min + (int) (Math.random() * ((max - min) + 1));
+            int mineX = min + (int) (Math.random() * ((maxX - min) + 1));
+            int mineY = min + (int) (Math.random() * ((maxY - min) + 1));
             int[] mineLocation = {mineX, mineY};
             // Make sure there's not two or more mines in the same block.
             if (!valExistsInArrayList(mineLocation, minefield))
@@ -347,9 +362,9 @@ public class Controller implements Initializable {
         return minefield;
     }
 
-    private void drawBoard() {
-        for (int i = 0; i < difficulty; i++) {
-            for (int j = 0; j < difficulty; j++) {
+    private void drawBoard(int[] dim) {
+        for (int i = 0; i < dim[0]; i++) {
+            for (int j = 0; j < dim[1]; j++) {
                 gridTiles.add(getTile("tile"), i, j);
             }
         }
