@@ -19,6 +19,8 @@ public class Main extends Application {
         primaryStage.setTitle("BMS");
         primaryStage.setScene(new Scene(root, 300, 275));
         primaryStage.show();
+        // Would otherwise focus the width textfield
+        root.requestFocus();
     }
 
 

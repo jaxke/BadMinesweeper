@@ -8,6 +8,7 @@ import javafx.fxml.Initializable;
 import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.control.TextField;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.MouseButton;
@@ -30,11 +31,16 @@ public class Controller implements Initializable {
     Button buttonNewGame = new Button();
     // Square dimension of board
     //int difficulty = 15;
-    int dim[];
+    int dim[] = {20, 15};
     int minesCount = 20;
     String minesRemainingHint = "Mines remaining: ";
     @FXML
     Label labelMinesRemaining = new Label();
+    // TODO same for "mines"
+    @FXML
+    TextField textFieldWidth = new TextField();
+    @FXML
+    TextField textFieldHeight = new TextField();
 
     // List of (x,y) coordinates where mines are located
     ArrayList<int[]> mineField = new ArrayList<>();
@@ -43,23 +49,26 @@ public class Controller implements Initializable {
     // List of currently flagged tiles.
     ArrayList<int[]> flaggedTiles = new ArrayList<>();
 
-    private void getConf(){
-        String settingsFile = "settings/settings";
-        Jconf conf;
+    String settingsFile = "settings/settings";
+    Jconf conf;
+
+    private Object getConf(String val){
         try {
             conf = new Jconf(settingsFile);
         } catch (Exception e){
             e.printStackTrace();
             System.out.println("Cannot read from " + settingsFile + ". Using default values.");
-            dim = new int[]{20, 15};
-            return;
+            //dim = new int[]{20, 15};
+            return 0;
         }
-        dim = new int[]{(int) conf.getVal("General", "Width"), (int) conf.getVal("General", "Height")};
+
+        return conf.getVal("General", val);
+        //dim = new int[]{(int) conf.getVal("General", "Width"), (int) conf.getVal("General", "Height")};
     }
 
     private void newGame() {
         labelMinesRemaining.setText(minesRemainingHint + Integer.toString(minesCount));
-        buttonNewGame.setDisable(true);
+        //buttonNewGame.setDisable(true);
         mineField = putMines(dim, minesCount);
         clickedTiles = new ArrayList<>();
         flaggedTiles = new ArrayList<>();
@@ -69,23 +78,40 @@ public class Controller implements Initializable {
     @FXML
     private void handleButtonAction(ActionEvent event) {
         if (event.getSource() == buttonNewGame) {
+            try {
+                int newWidth = Integer.parseInt(textFieldWidth.getText());
+                int newHeight = Integer.parseInt(textFieldWidth.getText());
+                dim = new int[]{newWidth, newHeight};
+                conf.set("General","Width", String.valueOf(newWidth));
+                conf.set("General","Height", String.valueOf(newHeight));
+            } catch (Exception e){  // TODO Catch what
+                e.printStackTrace();
+            }
             newGame();
         }
     }
 
     @Override
     public void initialize(URL url, ResourceBundle resourceBundle) {
-        getConf();
+        int w, h;
+        try {
+            w = (int) getConf("Width");
+            h = (int) getConf("Height");
+            dim = new int[]{w, h};
+        } catch (Exception e){  // TODO catch what
+            //e.printStackTrace();
+            System.out.println("Problem parsing configuration values to integers.");
+        }
+        // Reset all runtime settings
         newGame();
 
-        // For testing purposes
+        // Paint all mines for testing purposes
         for (int[] mine : mineField) {
             //gridTiles.add(getTile("mine"), mine[0], mine[1]);
 
         }
         gridTiles.addEventFilter(MouseEvent.MOUSE_PRESSED, new EventHandler<MouseEvent>() {
             int clickedPosition[] = null;
-
             @Override
             public void handle(MouseEvent mouseEvent) {
                 // Listen for a click in the grid pane, store the selected tile in (x, y) coordinates.
@@ -101,7 +127,6 @@ public class Controller implements Initializable {
                     if (minesNearby == -1) {
                         labelMinesRemaining.setText("You lost!");
                         revealBoard();
-                        buttonNewGame.setDisable(false);
                     }
                     if (minesNearby == 0) {
                         ArrayList<int[]> newlyRevealed = clearNearbyField(clickedPosition);
@@ -131,7 +156,6 @@ public class Controller implements Initializable {
 
                     if (checkIfAllMinesFlagged(flaggedTiles, mineField)) {
                         labelMinesRemaining.setText("You won");
-                        buttonNewGame.setDisable(false);
                     }
                 }
             }
