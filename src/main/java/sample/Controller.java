@@ -16,6 +16,7 @@ import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.GridPane;
 
 import java.io.File;
+import java.io.IOException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -41,6 +42,10 @@ public class Controller implements Initializable {
     TextField textFieldWidth = new TextField();
     @FXML
     TextField textFieldHeight = new TextField();
+    @FXML
+    TextField textFieldMines = new TextField();
+    @FXML
+    Label labelWarning = new Label();
 
     // List of (x,y) coordinates where mines are located
     ArrayList<int[]> mineField = new ArrayList<>();
@@ -52,10 +57,10 @@ public class Controller implements Initializable {
     String settingsFile = "settings/settings";
     Jconf conf;
 
-    private Object getConf(String val){
+    private Object getConf(String val) {
         try {
             conf = new Jconf(settingsFile);
-        } catch (Exception e){
+        } catch (Exception e) {
             e.printStackTrace();
             System.out.println("Cannot read from " + settingsFile + ". Using default values.");
             //dim = new int[]{20, 15};
@@ -66,28 +71,60 @@ public class Controller implements Initializable {
         //dim = new int[]{(int) conf.getVal("General", "Width"), (int) conf.getVal("General", "Height")};
     }
 
-    private void newGame() {
+    private boolean newGame() {
+        labelWarning.setText("");
         labelMinesRemaining.setText(minesRemainingHint + Integer.toString(minesCount));
         //buttonNewGame.setDisable(true);
-        mineField = putMines(dim, minesCount);
+        mineField = putMines(dim);
         clickedTiles = new ArrayList<>();
         flaggedTiles = new ArrayList<>();
         drawBoard(dim);
+        if (mineField == null) {
+            labelWarning.setText("Can't fit " + minesCount + " mines into " + dim[0] + "x" + dim[1] + " field!");
+            return false;
+        }
+        return true;
     }
 
     @FXML
     private void handleButtonAction(ActionEvent event) {
         if (event.getSource() == buttonNewGame) {
+            if(textFieldWidth.getText().length() == 0) {
+                labelWarning.setText("Enter width!");
+                return;
+            }
+            else if(textFieldHeight.getText().length() == 0) {
+                labelWarning.setText("Enter height!");
+                return;
+            }
+            else if(textFieldMines.getText().length() == 0) {
+                labelWarning.setText("Enter amount of mines!");
+                return;
+            }
             try {
-                int newWidth = Integer.parseInt(textFieldWidth.getText());
-                int newHeight = Integer.parseInt(textFieldWidth.getText());
+                int newWidth = Integer.parseInt(textFieldWidth.getText().trim());
+                int newHeight = Integer.parseInt(textFieldWidth.getText().trim());
                 dim = new int[]{newWidth, newHeight};
-                conf.set("General","Width", String.valueOf(newWidth));
-                conf.set("General","Height", String.valueOf(newHeight));
-            } catch (Exception e){  // TODO Catch what
+                conf.set("General", "Width", String.valueOf(newWidth));
+                conf.set("General", "Height", String.valueOf(newHeight));
+                conf.set("General", "Mines", String.valueOf(textFieldMines.getText().trim()));
+            } catch (Exception e) {  // TODO Catch what
+                labelWarning.setText("Error has occurred, please check your inputs.");
                 e.printStackTrace();
+                return;
             }
             newGame();
+        }
+    }
+
+    // Might be bad design to forcefully reset conf each time it's corrupted but it's only 3 values for now
+    private void resetConfToDefaults(){
+        try {
+            conf.set("General", "Width", "15");
+            conf.set("General", "Height", "15");
+            conf.set("General", "Mines", "15");
+        } catch (IOException ioe){
+            // TODO do something
         }
     }
 
@@ -98,12 +135,22 @@ public class Controller implements Initializable {
             w = (int) getConf("Width");
             h = (int) getConf("Height");
             dim = new int[]{w, h};
-        } catch (Exception e){  // TODO catch what
+        } catch (Exception e) {  // TODO catch what
             //e.printStackTrace();
-            System.out.println("Problem parsing configuration values to integers.");
+            System.out.println("Problem parsing width and height values to integers.");
+            resetConfToDefaults();
+        }
+        // If above fails, mine count doesn't get ignored. Hence two trys.
+        try {
+            minesCount = (int) getConf("Mines");
+        } catch (Exception e) {  // TODO catch what
+            //e.printStackTrace();
+            System.out.println("Problem parsing mines count value to integer.");
+            resetConfToDefaults();
         }
         // Reset all runtime settings
-        newGame();
+        if(!newGame())
+            return;
 
         // Paint all mines for testing purposes
         for (int[] mine : mineField) {
@@ -112,6 +159,7 @@ public class Controller implements Initializable {
         }
         gridTiles.addEventFilter(MouseEvent.MOUSE_PRESSED, new EventHandler<MouseEvent>() {
             int clickedPosition[] = null;
+
             @Override
             public void handle(MouseEvent mouseEvent) {
                 // Listen for a click in the grid pane, store the selected tile in (x, y) coordinates.
@@ -160,7 +208,6 @@ public class Controller implements Initializable {
                 }
             }
         });
-
     }
 
 
@@ -337,7 +384,6 @@ public class Controller implements Initializable {
                 break;
         }
 
-
         if (newlyRevealed.size() > 0)
             return newlyRevealed;
             // The loop calling this method will be broken on null(when nothing new was revealed).
@@ -371,7 +417,11 @@ public class Controller implements Initializable {
     }
 
     // Return array of (x, y) coordinates where the mines are located. Randomly picked.
-    private ArrayList<int[]> putMines(int[] dim, int minesCount) {
+    private ArrayList<int[]> putMines(int[] dim) {
+        if (dim[0] * dim[1] < minesCount) {
+            System.out.println("Too many mines for these dimensions!");
+            return null;
+        }
         ArrayList<int[]> minefield = new ArrayList<>();
         // min and max col/row
         int min = 0, maxX = dim[0] - 1, maxY = dim[1] - 1;
@@ -416,5 +466,4 @@ public class Controller implements Initializable {
         tileView.setImage(tile);
         return tileView;
     }
-
 }
