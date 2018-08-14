@@ -1,6 +1,6 @@
 package sample;
 
-import com.jconf.jconf.Jconf;
+import com.jconf.Jconf;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.fxml.FXML;
@@ -23,15 +23,15 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.ResourceBundle;
 
-
+// Eclipse will warn about _everything_
+@SuppressWarnings("restriction")
 public class Controller implements Initializable {
     // Main "board"
     @FXML
     GridPane gridTiles = new GridPane();
     @FXML
     Button buttonNewGame = new Button();
-    // Square dimension of board
-    //int difficulty = 15;
+    // Default values if settings can't be read.
     int dim[] = {20, 15};
     int minesCount = 20;
     String minesRemainingHint = "Mines remaining: ";
@@ -48,27 +48,23 @@ public class Controller implements Initializable {
     Label labelWarning = new Label();
 
     // List of (x,y) coordinates where mines are located
-    ArrayList<int[]> mineField = new ArrayList<>();
+    private ArrayList<int[]> mineField = new ArrayList<>();
     // Remember tiles that have successfully been opened.
-    ArrayList<int[]> clickedTiles = new ArrayList<>();
+    private ArrayList<int[]> clickedTiles = new ArrayList<>();
     // List of currently flagged tiles.
-    ArrayList<int[]> flaggedTiles = new ArrayList<>();
+    private ArrayList<int[]> flaggedTiles = new ArrayList<>();
 
-    String settingsFile = "settings/settings";
-    Jconf conf;
+    private String settingsFile = "settings";
+    private Jconf conf;
 
-    private Object getConf(String val) {
+    private String getConf(String category, String val) {
         try {
             conf = new Jconf(settingsFile);
         } catch (Exception e) {
-            e.printStackTrace();
-            System.out.println("Cannot read from " + settingsFile + ". Using default values.");
-            //dim = new int[]{20, 15};
-            return 0;
+            System.out.println("Cannot read value " + val + " from " + settingsFile + ". Using default values.");
+            return null;
         }
-
-        return conf.getVal("General", val);
-        //dim = new int[]{(int) conf.getVal("General", "Width"), (int) conf.getVal("General", "Height")};
+        return (String) conf.getVal(category, val);
     }
 
     private boolean newGame() {
@@ -81,6 +77,7 @@ public class Controller implements Initializable {
         drawBoard(dim);
         if (mineField == null) {
             labelWarning.setText("Can't fit " + minesCount + " mines into " + dim[0] + "x" + dim[1] + " field!");
+            // When false is returned, new game will not be started(wait for player to input valid values).
             return false;
         }
         return true;
@@ -103,8 +100,9 @@ public class Controller implements Initializable {
             }
             try {
                 int newWidth = Integer.parseInt(textFieldWidth.getText().trim());
-                int newHeight = Integer.parseInt(textFieldWidth.getText().trim());
+                int newHeight = Integer.parseInt(textFieldHeight.getText().trim());
                 dim = new int[]{newWidth, newHeight};
+                minesCount = Integer.parseInt(textFieldMines.getText().trim());
                 conf.set("General", "Width", String.valueOf(newWidth));
                 conf.set("General", "Height", String.valueOf(newHeight));
                 conf.set("General", "Mines", String.valueOf(textFieldMines.getText().trim()));
@@ -119,30 +117,39 @@ public class Controller implements Initializable {
 
     // Might be bad design to forcefully reset conf each time it's corrupted but it's only 3 values for now
     private void resetConfToDefaults(){
+    	// TODO write file completely because the category may be broken
         try {
             conf.set("General", "Width", "15");
             conf.set("General", "Height", "15");
             conf.set("General", "Mines", "15");
-        } catch (IOException ioe){
+        } catch (Exception e){
             // TODO do something
+        	e.printStackTrace();
         }
     }
 
-    @Override
+    @SuppressWarnings("restriction")
+	@Override
     public void initialize(URL url, ResourceBundle resourceBundle) {
+    	boolean cantRead = false;
         int w, h;
         try {
-            w = (int) getConf("Width");
-            h = (int) getConf("Height");
+            w = Integer.parseInt(getConf("General", "Width"));
+            h = Integer.parseInt(getConf("General", "Height"));
             dim = new int[]{w, h};
         } catch (Exception e) {  // TODO catch what
             //e.printStackTrace();
             System.out.println("Problem parsing width and height values to integers.");
             resetConfToDefaults();
+            labelWarning.setText("Using default values, config file was corrupted.");
+            String x = getConf("General", "Width");
+            w = Integer.parseInt(getConf("General", "Width"));
+            h = Integer.parseInt(getConf("General", "Height"));
+            dim = new int[]{w, h};
         }
         // If above fails, mine count doesn't get ignored. Hence two trys.
         try {
-            minesCount = (int) getConf("Mines");
+            minesCount = Integer.parseInt(getConf("General", "Mines"));
         } catch (Exception e) {  // TODO catch what
             //e.printStackTrace();
             System.out.println("Problem parsing mines count value to integer.");
