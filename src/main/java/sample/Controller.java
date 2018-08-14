@@ -37,7 +37,6 @@ public class Controller implements Initializable {
     String minesRemainingHint = "Mines remaining: ";
     @FXML
     Label labelMinesRemaining = new Label();
-    // TODO same for "mines"
     @FXML
     TextField textFieldWidth = new TextField();
     @FXML
@@ -51,7 +50,7 @@ public class Controller implements Initializable {
     private ArrayList<int[]> mineField = new ArrayList<>();
     // Remember tiles that have successfully been opened.
     private ArrayList<int[]> clickedTiles = new ArrayList<>();
-    // List of currently flagged tiles.
+    // List of currently flagged tiles. These can't be opened before flag is taken off.
     private ArrayList<int[]> flaggedTiles = new ArrayList<>();
 
     private String settingsFile = "settings";
@@ -70,10 +69,11 @@ public class Controller implements Initializable {
     private boolean newGame() {
         labelWarning.setText("");
         labelMinesRemaining.setText(minesRemainingHint + Integer.toString(minesCount));
-        //buttonNewGame.setDisable(true);
         mineField = putMines(dim);
+        // Reset ArrayLists to empty state.
         clickedTiles = new ArrayList<>();
         flaggedTiles = new ArrayList<>();
+        // Draws the grid.
         drawBoard(dim);
         if (mineField == null) {
             labelWarning.setText("Can't fit " + minesCount + " mines into " + dim[0] + "x" + dim[1] + " field!");
@@ -108,7 +108,6 @@ public class Controller implements Initializable {
                 conf.set("General", "Mines", String.valueOf(textFieldMines.getText().trim()));
             } catch (Exception e) {  // TODO Catch what
                 labelWarning.setText("Error has occurred, please check your inputs.");
-                e.printStackTrace();
                 return;
             }
             newGame();
@@ -131,7 +130,6 @@ public class Controller implements Initializable {
     @SuppressWarnings("restriction")
 	@Override
     public void initialize(URL url, ResourceBundle resourceBundle) {
-    	boolean cantRead = false;
         int w, h;
         try {
             w = Integer.parseInt(getConf("General", "Width"));
@@ -141,12 +139,11 @@ public class Controller implements Initializable {
             //e.printStackTrace();
             System.out.println("Problem parsing width and height values to integers.");
             resetConfToDefaults();
-            labelWarning.setText("Using default values, config file was corrupted.");
-            String x = getConf("General", "Width");
             w = Integer.parseInt(getConf("General", "Width"));
             h = Integer.parseInt(getConf("General", "Height"));
             dim = new int[]{w, h};
         }
+        // TODO not the case anymore because of resetConfToDefaults()
         // If above fails, mine count doesn't get ignored. Hence two trys.
         try {
             minesCount = Integer.parseInt(getConf("General", "Mines"));
@@ -160,10 +157,11 @@ public class Controller implements Initializable {
             return;
 
         // Paint all mines for testing purposes
+        /*
         for (int[] mine : mineField) {
-            //gridTiles.add(getTile("mine"), mine[0], mine[1]);
-
-        }
+            gridTiles.add(getTile("mine"), mine[0], mine[1]);
+        } 
+        */
         gridTiles.addEventFilter(MouseEvent.MOUSE_PRESSED, new EventHandler<MouseEvent>() {
             int clickedPosition[] = null;
 
@@ -183,6 +181,8 @@ public class Controller implements Initializable {
                         labelMinesRemaining.setText("You lost!");
                         revealBoard();
                     }
+                    // Reveal all "0" that are not separated by non "0" tiles, stop revealing in direction once non "0" or mine found.
+                    // Same as in original Minesweeper.
                     if (minesNearby == 0) {
                         ArrayList<int[]> newlyRevealed = clearNearbyField(clickedPosition);
                         while (newlyRevealed != null) {
@@ -201,15 +201,17 @@ public class Controller implements Initializable {
                     clickedTiles.add(clickedPosition);
                     drawRevealedBlocks(minesNearby, clickedPosition);
 
-                    // If right-click
+                // On right-click cycle flag on/flag off.
                 } else if (mouseEvent.getButton() == MouseButton.SECONDARY) {
                     // Can't flag opened tile
                     if (valExistsInArrayList(clickedPosition, clickedTiles))
                         return;
+                    // markTile() will determine whether it's flagged already or not(either remove that coord. from flaggedTiles or add).
+                    // It will also paint it green, or paint it to unopened.
                     flaggedTiles = markTile(clickedPosition, flaggedTiles);
                     labelMinesRemaining.setText(minesRemainingHint + Integer.toString(minesCount - flaggedTiles.size()));
 
-                    if (checkIfAllMinesFlagged(flaggedTiles, mineField)) {
+                    if (checkIfAllMinesFlagged(flaggedTiles, mineField) && flaggedTiles.size() == mineField.size()) {
                         labelMinesRemaining.setText("You won");
                     }
                 }
@@ -220,27 +222,24 @@ public class Controller implements Initializable {
 
     // Check if all flags are on top of mines(every mine has to be flagged)
     private boolean checkIfAllMinesFlagged(ArrayList<int[]> flaggedTiles, ArrayList<int[]> mineField) {
-        if (flaggedTiles.size() != mineField.size()) {
-            return false;
-        }
+        // TODO I'm quite sure there's a bug here??
+    	// TODO use break 
+    	boolean flaggedCorrectly = false;
         for (int[] flaggedTile : flaggedTiles) {
-            // use boolean instead of breaking out of a nested loop...
-            boolean flaggedCorrectly = false;
             for (int[] mine : mineField) {
                 if (Arrays.equals(flaggedTile, mine)) {
                     flaggedCorrectly = true;
                 }
             }
-            if (!flaggedCorrectly)
-                return false;
         }
-        return true;
+        return flaggedCorrectly;
     }
 
 
     // Cycle flag on/flag off on right clicking a tile.
     private ArrayList<int[]> markTile(int[] position, ArrayList<int[]> flaggedTiles) {
-        if (flaggedTiles.size() == minesCount) {
+        // Don't allow player to mark anymore mines than minesCount.
+    	if (flaggedTiles.size() == minesCount) {
             return flaggedTiles;
         }
         // Check if flag already exists in 'position' -> remove it
@@ -265,7 +264,7 @@ public class Controller implements Initializable {
     // Return: Amount of mines in blocks that are near the clicked block(diagonally or directly next to clicked block).
     // OR -1 on mine.
     private int revealTile(int[] position) {
-        int dimX = dim[0], dimY = dim[1];
+        int dimY = dim[1];
         // This is a mine
         if (valExistsInArrayList(position, mineField))
             return -1;
@@ -292,8 +291,7 @@ public class Controller implements Initializable {
             dangerPos = minesNearbyPos;
         }
         for (int[] mine : mineField) {
-            int mineArr[] = {mine[0], mine[1]};
-            int minePosInt = gridPosToInt(mineArr);
+            int minePosInt = gridPosToInt(new int[]{mine[0], mine[1]});
             for (int pos : dangerPos) {
                 if (minePosInt == pos)
                     minesNearby++;
@@ -302,6 +300,7 @@ public class Controller implements Initializable {
         return minesNearby;
     }
 
+    // Avoid unnecessary redundancy.
     private boolean valExistsInArrayList(int[] val, ArrayList<int[]> AL) {
         for (int[] item : AL) {
             if (Arrays.equals(item, val))
@@ -462,7 +461,7 @@ public class Controller implements Initializable {
         tiles.put("6", "6.png");
         tiles.put("7", "7.png");
         tiles.put("8", "8.png");
-        tiles.put("9", "9.png");
+        //tiles.put("9", "9.png");
         tiles.put("0", "0.png");
         tiles.put("tile", "tile.png");
         tiles.put("flag", "flag.png");
