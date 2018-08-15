@@ -15,9 +15,15 @@ import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.GridPane;
 
+import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.net.URL;
+import java.nio.file.FileAlreadyExistsException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -86,7 +92,12 @@ public class Controller implements Initializable {
     @FXML
     private void handleButtonAction(ActionEvent event) {
         if (event.getSource() == buttonNewGame) {
-            if(textFieldWidth.getText().length() == 0) {
+        	if (textFieldWidth.getText().length() == 0 && textFieldHeight.getText().length() == 0 && textFieldMines.getText().length() == 0) {
+        		// Start game using same values as before.
+        		newGame();
+        		return;
+        	}
+        	else if(textFieldWidth.getText().length() == 0) {
                 labelWarning.setText("Enter width!");
                 return;
             }
@@ -103,55 +114,69 @@ public class Controller implements Initializable {
                 int newHeight = Integer.parseInt(textFieldHeight.getText().trim());
                 dim = new int[]{newWidth, newHeight};
                 minesCount = Integer.parseInt(textFieldMines.getText().trim());
+                // TODO conf.set does not work always??
                 conf.set("General", "Width", String.valueOf(newWidth));
                 conf.set("General", "Height", String.valueOf(newHeight));
                 conf.set("General", "Mines", String.valueOf(textFieldMines.getText().trim()));
-            } catch (Exception e) {  // TODO Catch what
+            } catch (NumberFormatException nfe) {
                 labelWarning.setText("Error has occurred, please check your inputs.");
                 return;
+            } catch (IOException ioe) {		// Should not happen at this point.
+            	ioe.printStackTrace();
+                resetConfToDefaults();
             }
             newGame();
         }
     }
-
-    // Might be bad design to forcefully reset conf each time it's corrupted but it's only 3 values for now
-    private void resetConfToDefaults(){
-    	// TODO write file completely because the category may be broken
+    
+    // Start game using values from config.
+    private void initGame() {
+    	int w, h;
         try {
-            conf.set("General", "Width", "15");
-            conf.set("General", "Height", "15");
-            conf.set("General", "Mines", "15");
-        } catch (Exception e){
-            // TODO do something
-        	e.printStackTrace();
+            w = Integer.parseInt(getConf("General", "Width"));
+            h = Integer.parseInt(getConf("General", "Height"));
+            dim = new int[]{w, h};
+            minesCount = Integer.parseInt(getConf("General", "Mines"));
+        } catch (NumberFormatException nfe) {
+        	labelWarning.setText("Can't parse values from " + settingsFile + ". Using defaults.");
+            resetConfToDefaults();
+            w = Integer.parseInt(getConf("General", "Width"));
+            h = Integer.parseInt(getConf("General", "Height"));
+            dim = new int[]{w, h};
         }
+    }
+
+    private void resetConfToDefaults() {
+    	String configurationDefault = "{General}\nHeight = 15\n" + 
+    			"Width = 15\nMines = 15";
+    	Path out;
+    	try {
+			out = Files.createFile(Paths.get(settingsFile));
+		} catch (FileAlreadyExistsException faee) {
+			// Do nothing
+		} catch (IOException ioe) {
+			// TODO Do something
+		}
+    	BufferedWriter bw = null;
+    	try {
+    		bw = new BufferedWriter(new FileWriter(settingsFile));
+    		bw.write(configurationDefault);
+    	} catch (IOException ioe) {
+    		// TODO
+    	} finally {
+    		try {
+				bw.close();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+    	}
     }
 
     @SuppressWarnings("restriction")
 	@Override
     public void initialize(URL url, ResourceBundle resourceBundle) {
-        int w, h;
-        try {
-            w = Integer.parseInt(getConf("General", "Width"));
-            h = Integer.parseInt(getConf("General", "Height"));
-            dim = new int[]{w, h};
-        } catch (Exception e) {  // TODO catch what
-            //e.printStackTrace();
-            System.out.println("Problem parsing width and height values to integers.");
-            resetConfToDefaults();
-            w = Integer.parseInt(getConf("General", "Width"));
-            h = Integer.parseInt(getConf("General", "Height"));
-            dim = new int[]{w, h};
-        }
-        // TODO not the case anymore because of resetConfToDefaults()
-        // If above fails, mine count doesn't get ignored. Hence two trys.
-        try {
-            minesCount = Integer.parseInt(getConf("General", "Mines"));
-        } catch (Exception e) {  // TODO catch what
-            //e.printStackTrace();
-            System.out.println("Problem parsing mines count value to integer.");
-            resetConfToDefaults();
-        }
+    	resetConfToDefaults();
+    	initGame();
         // Reset all runtime settings
         if(!newGame())
             return;
@@ -222,26 +247,20 @@ public class Controller implements Initializable {
 
     // Check if all flags are on top of mines(every mine has to be flagged)
     private boolean checkIfAllMinesFlagged(ArrayList<int[]> flaggedTiles, ArrayList<int[]> mineField) {
-        // TODO I'm quite sure there's a bug here??
-    	// TODO use break 
-    	boolean flaggedCorrectly = false;
+    	int flaggedCorrectly = 0;
         for (int[] flaggedTile : flaggedTiles) {
             for (int[] mine : mineField) {
                 if (Arrays.equals(flaggedTile, mine)) {
-                    flaggedCorrectly = true;
+                    flaggedCorrectly++;
                 }
             }
         }
-        return flaggedCorrectly;
+        return flaggedCorrectly == mineField.size();
     }
 
 
     // Cycle flag on/flag off on right clicking a tile.
     private ArrayList<int[]> markTile(int[] position, ArrayList<int[]> flaggedTiles) {
-        // Don't allow player to mark anymore mines than minesCount.
-    	if (flaggedTiles.size() == minesCount) {
-            return flaggedTiles;
-        }
         // Check if flag already exists in 'position' -> remove it
         if (valExistsInArrayList(position, flaggedTiles)) {
             for (int[] tile : flaggedTiles) {
@@ -254,7 +273,11 @@ public class Controller implements Initializable {
             gridTiles.add(getTile("tile"), position[0], position[1]);
             return flaggedTiles;
         }
-        // Otherwise add a flag
+        // Otherwise add a flag...
+        // ...but don't allow player to mark anymore mines than minesCount.
+    	if (flaggedTiles.size() == minesCount) {
+            return flaggedTiles;
+        }
         flaggedTiles.add(position);
         gridTiles.add(getTile("flag"), position[0], position[1]);
         return flaggedTiles;
