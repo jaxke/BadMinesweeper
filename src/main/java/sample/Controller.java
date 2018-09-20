@@ -29,7 +29,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.ResourceBundle;
 
-// Eclipse will warn about _everything_
+// Eclipse will warn about _everything_ regarding to JavaFX
 @SuppressWarnings("restriction")
 public class Controller implements Initializable {
     // Main "board"
@@ -61,6 +61,8 @@ public class Controller implements Initializable {
 
     private String settingsFile = "settings";
     private Jconf conf;
+    
+    private boolean gameWon = false;
 
     private String getConf(String category, String val) {
         try {
@@ -73,6 +75,7 @@ public class Controller implements Initializable {
     }
 
     private boolean newGame() {
+    	gameWon = false;
         labelWarning.setText("");
         labelMinesRemaining.setText(minesRemainingHint + Integer.toString(minesCount));
         mineField = putMines(dim);
@@ -150,6 +153,7 @@ public class Controller implements Initializable {
     	String configurationDefault = "{General}\nHeight = 15\n" + 
     			"Width = 15\nMines = 15";
     	Path out;
+    	// Create if doesn't exist
     	try {
 			out = Files.createFile(Paths.get(settingsFile));
 		} catch (FileAlreadyExistsException faee) {
@@ -159,7 +163,7 @@ public class Controller implements Initializable {
 		}
     	BufferedWriter bw = null;
     	try {
-    		bw = new BufferedWriter(new FileWriter(settingsFile));
+    		bw = new BufferedWriter(new FileWriter(settingsFile, false));
     		bw.write(configurationDefault);
     	} catch (IOException ioe) {
     		// TODO
@@ -172,8 +176,8 @@ public class Controller implements Initializable {
     	}
     }
 
-    @SuppressWarnings("restriction")
-	@Override
+    @Override
+	@FXML
     public void initialize(URL url, ResourceBundle resourceBundle) {
     	resetConfToDefaults();
     	initGame();
@@ -199,7 +203,7 @@ public class Controller implements Initializable {
                     }
                 }
                 // If left-click
-                if (mouseEvent.getButton() == MouseButton.PRIMARY) {
+                if (mouseEvent.getButton() == MouseButton.PRIMARY && !gameWon) {
                     int minesNearby = revealTile(clickedPosition);
                     // Clicked on a mine
                     if (minesNearby == -1) {
@@ -227,7 +231,7 @@ public class Controller implements Initializable {
                     drawRevealedBlocks(minesNearby, clickedPosition);
 
                 // On right-click cycle flag on/flag off.
-                } else if (mouseEvent.getButton() == MouseButton.SECONDARY) {
+                } else if (mouseEvent.getButton() == MouseButton.SECONDARY && !gameWon) {
                     // Can't flag opened tile
                     if (valExistsInArrayList(clickedPosition, clickedTiles))
                         return;
@@ -238,6 +242,7 @@ public class Controller implements Initializable {
 
                     if (checkIfAllMinesFlagged(flaggedTiles, mineField) && flaggedTiles.size() == mineField.size()) {
                         labelMinesRemaining.setText("You won");
+                        gameWon = true;
                     }
                 }
             }
@@ -484,15 +489,15 @@ public class Controller implements Initializable {
         tiles.put("6", "6.png");
         tiles.put("7", "7.png");
         tiles.put("8", "8.png");
-        //tiles.put("9", "9.png");
         tiles.put("0", "0.png");
         tiles.put("tile", "tile.png");
         tiles.put("flag", "flag.png");
         tiles.put("mine", "mine.png");
-        File tileImg = new File("assets/" + tiles.get(val));
+        File tileImg = new File("/img/" + tiles.get(val));
         Image tile = new Image(tileImg.toURI().toString());
+        Image t = new Image(getClass().getResource("/img/") + tiles.get(val));
         ImageView tileView = new ImageView();
-        tileView.setImage(tile);
+        tileView.setImage(t);
         return tileView;
     }
 }

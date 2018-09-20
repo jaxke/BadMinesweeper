@@ -1,22 +1,29 @@
 package sample;
 
-import com.jconf.jconf.Jconf;
 import javafx.application.Application;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
+import javafx.scene.layout.AnchorPane;
 import javafx.stage.Stage;
 
-
-import java.util.HashMap;
+import java.io.File;
+import java.io.IOException;
+import java.net.URL;
 
 public class Main extends Application {
 
 
+
     @Override
     public void start(Stage primaryStage) throws Exception{
-        Jconf c = new Jconf("settings/settings");
-        Parent root = FXMLLoader.load(getClass().getClassLoader().getResource("sample.fxml"));
+        AnchorPane root = null;
+        try {
+            root = FXMLLoader.load(getClass().getResource("sample.fxml"));
+        } catch (IOException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
         primaryStage.setTitle("BMS");
         primaryStage.setScene(new Scene(root, 300, 275));
         primaryStage.show();
