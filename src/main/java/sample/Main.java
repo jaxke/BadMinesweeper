@@ -2,14 +2,11 @@ package sample;
 
 import javafx.application.Application;
 import javafx.fxml.FXMLLoader;
-import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.layout.AnchorPane;
 import javafx.stage.Stage;
 
-import java.io.File;
 import java.io.IOException;
-import java.net.URL;
 
 public class Main extends Application {
 
@@ -17,13 +14,8 @@ public class Main extends Application {
 
     @Override
     public void start(Stage primaryStage) throws Exception{
-        AnchorPane root = null;
-        try {
-            root = FXMLLoader.load(getClass().getResource("sample.fxml"));
-        } catch (IOException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-        }
+        //System.out.println(getClass().getResource("/fxml/sample.fxml"));
+        AnchorPane root = FXMLLoader.load(getClass().getResource("/fxml/sample.fxml"));
         primaryStage.setTitle("BMS");
         primaryStage.setScene(new Scene(root, 300, 275));
         primaryStage.show();

@@ -13,6 +13,7 @@ import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
+import javafx.scene.layout.AnchorPane;
 import javafx.scene.layout.GridPane;
 
 import java.io.BufferedWriter;
@@ -32,9 +33,11 @@ import java.util.ResourceBundle;
 // Eclipse will warn about _everything_ regarding to JavaFX
 @SuppressWarnings("restriction")
 public class Controller implements Initializable {
+    @FXML
+    AnchorPane root = new AnchorPane();
     // Main "board"
     @FXML
-    GridPane gridTiles = new GridPane();
+    GridPane gridTiles;
     @FXML
     Button buttonNewGame = new Button();
     // Default values if settings can't be read.
@@ -79,16 +82,16 @@ public class Controller implements Initializable {
         labelWarning.setText("");
         labelMinesRemaining.setText(minesRemainingHint + Integer.toString(minesCount));
         mineField = putMines(dim);
-        // Reset ArrayLists to empty state.
-        clickedTiles = new ArrayList<>();
-        flaggedTiles = new ArrayList<>();
-        // Draws the grid.
-        drawBoard(dim);
         if (mineField == null) {
             labelWarning.setText("Can't fit " + minesCount + " mines into " + dim[0] + "x" + dim[1] + " field!");
             // When false is returned, new game will not be started(wait for player to input valid values).
             return false;
         }
+        // Reset ArrayLists to empty state.
+        clickedTiles = new ArrayList<>();
+        flaggedTiles = new ArrayList<>();
+        // Draws the grid.
+        drawBoard(dim);
         return true;
     }
 
@@ -131,7 +134,8 @@ public class Controller implements Initializable {
             newGame();
         }
     }
-    
+
+    // Is called when program is run(not "New game" button).
     // Start game using values from config.
     private void initGame() {
     	int w, h;
@@ -150,6 +154,7 @@ public class Controller implements Initializable {
     }
 
     private void resetConfToDefaults() {
+        System.out.println("RESET");
     	String configurationDefault = "{General}\nHeight = 15\n" + 
     			"Width = 15\nMines = 15";
     	Path out;
@@ -179,7 +184,8 @@ public class Controller implements Initializable {
     @Override
 	@FXML
     public void initialize(URL url, ResourceBundle resourceBundle) {
-    	resetConfToDefaults();
+        // Commit message: this was main reason of the bug. What even is this...
+    	//resetConfToDefaults();
     	initGame();
         // Reset all runtime settings
         if(!newGame())
@@ -471,11 +477,21 @@ public class Controller implements Initializable {
     }
 
     private void drawBoard(int[] dim) {
+        /*
+        try {
+            Thread.sleep(1);
+        } catch (InterruptedException ie){
+            ie.printStackTrace();
+        }
+        */
+        gridTiles.setVisible(false);
+        gridTiles.getChildren().removeAll();
         for (int i = 0; i < dim[0]; i++) {
             for (int j = 0; j < dim[1]; j++) {
                 gridTiles.add(getTile("tile"), i, j);
             }
         }
+        gridTiles.setVisible(true);
     }
 
     // Return image of different types of blocks
