@@ -1,4 +1,4 @@
-package sample;
+package bms;
 
 import com.jconf.Jconf;
 import javafx.event.ActionEvent;
@@ -477,21 +477,13 @@ public class Controller implements Initializable {
     }
 
     private void drawBoard(int[] dim) {
-        /*
-        try {
-            Thread.sleep(1);
-        } catch (InterruptedException ie){
-            ie.printStackTrace();
-        }
-        */
-        gridTiles.setVisible(false);
-        gridTiles.getChildren().removeAll();
         for (int i = 0; i < dim[0]; i++) {
             for (int j = 0; j < dim[1]; j++) {
                 gridTiles.add(getTile("tile"), i, j);
             }
         }
-        gridTiles.setVisible(true);
+
+
     }
 
     // Return image of different types of blocks
@@ -509,11 +501,9 @@ public class Controller implements Initializable {
         tiles.put("tile", "tile.png");
         tiles.put("flag", "flag.png");
         tiles.put("mine", "mine.png");
-        File tileImg = new File("/img/" + tiles.get(val));
-        Image tile = new Image(tileImg.toURI().toString());
-        Image t = new Image(getClass().getResource("/img/") + tiles.get(val));
+        Image tile = new Image(getClass().getResource("/img/") + tiles.get(val));
         ImageView tileView = new ImageView();
-        tileView.setImage(t);
+        tileView.setImage(tile);
         return tileView;
     }
 }

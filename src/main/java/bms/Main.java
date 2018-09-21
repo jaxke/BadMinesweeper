@@ -1,4 +1,4 @@
-package sample;
+package bms;
 
 import javafx.application.Application;
 import javafx.fxml.FXMLLoader;
@@ -6,15 +6,13 @@ import javafx.scene.Scene;
 import javafx.scene.layout.AnchorPane;
 import javafx.stage.Stage;
 
-import java.io.IOException;
-
 public class Main extends Application {
 
 
 
     @Override
     public void start(Stage primaryStage) throws Exception{
-        //System.out.println(getClass().getResource("/fxml/sample.fxml"));
+        //System.out.println(getClass().getResource("/fxml/bms.fxml"));
         AnchorPane root = FXMLLoader.load(getClass().getResource("/fxml/sample.fxml"));
         primaryStage.setTitle("BMS");
         primaryStage.setScene(new Scene(root, 300, 275));

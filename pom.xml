@@ -81,7 +81,7 @@
                     </descriptorRefs>
                     <archive>
                         <manifest>
-                            <mainClass>sample.Main</mainClass>
+                            <mainClass>bms.Main</mainClass>
                         </manifest>
                     </archive>
                 </configuration>
